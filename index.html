@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TableFlow – Free Dining Arrangement & Table Turnover Manager</title>
+<meta name="description" content="Free, no-install seating and table-turnover tool for small restaurants, cafés and food stalls.">
+<style>
+:root{--bg:#f6f4ef;--card:#fff;--ink:#1f2a2e;--mut:#6b777b;--line:#e2ddd2;--free:#2f9e6b;--dine:#2f6fdc;--ling:#e8a317;--over:#d64545;--rsv:#8a5cd6;--acc:#c2410c}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+header{background:#1f2a2e;color:#fff;padding:14px 16px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
+header h1{font-size:20px;margin:0}header small{color:#b9c4c7;display:block;font-size:12px}
+nav{display:flex;gap:6px;flex-wrap:wrap}
+nav button,.btn{border:0;border-radius:8px;padding:9px 13px;font-size:14px;cursor:pointer;background:#33434a;color:#fff}
+nav button.on{background:var(--acc)}
+.btn.p{background:var(--acc)}.btn.g{background:#e9e5d9;color:var(--ink)}.btn.d{background:var(--over)}
+main{max-width:1100px;margin:0 auto;padding:14px}
+.view{display:none}.view.on{display:block}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.legend span{font-size:12px;display:inline-flex;align-items:center;gap:4px;margin-right:8px}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.tbl{background:var(--card);border:2px solid var(--line);border-radius:12px;padding:10px;cursor:pointer;min-height:112px;position:relative}
+.tbl h3{margin:0 0 2px;font-size:16px}.tbl .m{font-size:12px;color:var(--mut)}
+.tbl .t{font-size:22px;font-weight:700;margin-top:6px}
+.tbl .tag{position:absolute;top:8px;right:8px;font-size:10px;background:#eee;border-radius:6px;padding:2px 6px}
+.s-free{border-color:var(--free)}.s-dining{border-color:var(--dine);background:#f1f6ff}
+.s-linger{border-color:var(--ling);background:#fff8e6}.s-over{border-color:var(--over);background:#fff0f0}
+.s-reserved{border-color:var(--rsv);background:#f6f0ff}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+.card h2{margin:0 0 8px;font-size:16px}
+label{font-size:13px;color:var(--mut);display:block;margin-bottom:3px}
+input,select{padding:9px;border:1px solid var(--line);border-radius:8px;font-size:15px;width:100%}
+.f{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;align-items:end}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
+.kpi b{font-size:24px;display:block}.kpi span{font-size:12px;color:var(--mut)}
+table.l{width:100%;border-collapse:collapse;font-size:13px}
+table.l th,table.l td{text-align:left;padding:7px;border-bottom:1px solid var(--line)}
+.sug{background:#eefaf3;border:1px solid #b9e3cc;border-radius:8px;padding:8px;margin:6px 0;font-size:13px}
+.alert{background:#fff0f0;border:1px solid #f0b8b8;border-radius:8px;padding:8px;margin:5px 0;font-size:13px}
+.modal{position:fixed;inset:0;background:#0007;display:none;align-items:center;justify-content:center;padding:14px;z-index:9}
+.modal.on{display:flex}.modal .box{background:#fff;border-radius:14px;padding:16px;max-width:420px;width:100%;max-height:90vh;overflow:auto}
+.bar{height:14px;border-radius:7px;background:#eee;overflow:hidden;display:flex}
+.note{font-size:12px;color:var(--mut)}
+footer{text-align:center;color:var(--mut);font-size:12px;padding:20px}
+</style>
+</head>
+<body>
+<header>
+  <div><h1>TableFlow</h1><small>Free seating &amp; table-turnover manager · works offline · no sign-up</small></div>
+  <nav id="nav">
+    <button data-v="floor" class="on">Floor</button>
+    <button data-v="wait">Waitlist</button>
+    <button data-v="stats">Insights</button>
+    <button data-v="setup">Setup</button>
+  </nav>
+</header>
+<main>
+<section id="floor" class="view on">
+  <div class="row legend">
+    <span><i class="dot" style="background:var(--free)"></i>Free</span>
+    <span><i class="dot" style="background:var(--dine)"></i>Dining</span>
+    <span><i class="dot" style="background:var(--ling)"></i>Meal finished, still seated</span>
+    <span><i class="dot" style="background:var(--over)"></i>Over time limit</span>
+    <span><i class="dot" style="background:var(--rsv)"></i>Reserved</span>
+  </div>
+  <div id="alerts"></div>
+  <div class="grid" id="tables"></div>
+</section>
+
+<section id="wait" class="view">
+  <div class="card"><h2>Add a party to the waitlist</h2>
+    <div class="f">
+      <div><label>Name</label><input id="wName" placeholder="e.g. Rahul"></div>
+      <div><label>People</label><input id="wSize" type="number" min="1" max="20" value="2"></div>
+      <div><label>Type</label><select id="wType"><option value="dining">Dining group</option><option value="laptop">Solo / laptop / long stay</option></select></div>
+      <div><button class="btn p" onclick="addWait()">Add</button></div>
+    </div></div>
+  <div id="waitList"></div>
+</section>
+
+<section id="stats" class="view">
+  <div class="row">
+    <button class="btn g" onclick="exportCSV()">Download CSV</button>
+    <button class="btn g" onclick="loadSample()">Load SAMPLE data (for demo only)</button>
+    <button class="btn d" onclick="clearLog()">Clear history</button>
+  </div>
+  <div class="kpis" id="kpis"></div>
+  <div class="card" style="margin-top:12px"><h2>Where seat-time goes</h2><div id="bars"></div></div>
+  <div class="card"><h2>Average stay by customer type</h2><div id="byType"></div></div>
+  <div class="card"><h2>Which table format earns most per seat-hour</h2><div id="byZone"></div></div>
+  <div class="card"><h2>Recent sessions</h2><div style="overflow:auto"><table class="l" id="logT"></table></div></div>
+</section>
+
+<section id="setup" class="view">
+  <div class="card"><h2>Rules</h2>
+    <div class="f">
+      <div><label>Dining time limit (min)</label><input id="sMax" type="number" min="20" value="75"></div>
+      <div><label>Nudge after meal finished (min)</label><input id="sLing" type="number" min="5" value="20"></div>
+      <div><label>Opening hours per day</label><input id="sHours" type="number" min="1" max="24" value="10"></div>
+      <div><button class="btn p" onclick="saveSettings()">Save</button></div>
+    </div></div>
+  <div class="card"><h2>Add a table</h2>
+    <div class="f">
+      <div><label>Name</label><input id="tName" placeholder="T11"></div>
+      <div><label>Seats</label><input id="tSeats" type="number" min="1" max="20" value="4"></div>
+      <div><label>Zone</label><select id="tZone"><option value="booth">Booth (best for groups)</option><option value="standard">Standard table</option><option value="communal">Communal / high-top (laptop-friendly)</option></select></div>
+      <div><button class="btn p" onclick="addTable()">Add</button></div>
+    </div></div>
+  <div class="card"><h2>Your tables</h2><div id="tList"></div>
+    <p class="note">Tip: put 1–2 communal tables near power sockets so laptop users have a place, and keep booths for dining groups.</p>
+    <button class="btn d" onclick="resetAll()">Reset everything</button></div>
+</section>
+</main>
+
+<div class="modal" id="modal"><div class="box" id="mbox"></div></div>
+<footer>TableFlow · open source (MIT) · all data stays on your own device (browser storage) · <a href="https://github.com/">GitHub</a></footer>
+
+<script>
+/* ===== State ===== */
+const KEY='tableflow.v1';
+const DEFAULT={
+  tables:[
+    {id:'t1',name:'B1',seats:4,zone:'booth'},{id:'t2',name:'B2',seats:4,zone:'booth'},{id:'t3',name:'B3',seats:6,zone:'booth'},
+    {id:'t4',name:'T1',seats:2,zone:'standard'},{id:'t5',name:'T2',seats:2,zone:'standard'},{id:'t6',name:'T3',seats:4,zone:'standard'},
+    {id:'t7',name:'H1',seats:4,zone:'communal'},{id:'t8',name:'H2',seats:4,zone:'communal'}],
+  sessions:{},waitlist:[],log:[],
+  settings:{maxDining:75,lingerNudge:20,hours:10}
+};
+let S=load();
+function load(){try{const x=JSON.parse(localStorage.getItem(KEY));if(x&&x.tables)return x}catch(e){}return JSON.parse(JSON.stringify(DEFAULT))}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+const now=()=>Date.now(), mins=ms=>Math.floor(ms/60000);
+const uid=()=>'x'+Math.random().toString(36).slice(2,9);
+const ZN={booth:'Booth',standard:'Standard',communal:'Communal'};
+
+/* ===== Smart seating suggestion (rule-based scoring) ===== */
+function suggestTables(size,type){
+  const out=[];
+  S.tables.forEach(t=>{
+    if(S.sessions[t.id]||t.seats<size)return;
+    let sc=100,why=[];
+    const waste=t.seats-size; sc-=waste*6; if(waste>0)why.push(waste+' spare seat'+(waste>1?'s':''));
+    if(type==='laptop'){
+      if(t.zone==='communal'){sc+=40;why.push('communal table suits long stays')}
+      else if(t.zone==='booth'){sc-=45;why.push('keeps booth free for dining groups')}
+    }else{
+      if(t.zone==='communal'){sc-=30;why.push('communal seating is not ideal for meals')}
+      if(t.zone==='booth'&&size>=3){sc+=15;why.push('booth fits groups')}
+      if(t.zone==='booth'&&size<=2){sc-=15;why.push('booth is wasted on 1–2 people')}
+    }
+    out.push({t,score:sc,why:why.join(', ')||'good fit'});
+  });
+  return out.sort((a,b)=>b.score-a.score);
+}
+
+/* ===== Session status ===== */
+function status(t){
+  const s=S.sessions[t.id];
+  if(!s)return {k:'free',label:'Free'};
+  if(s.reserved)return {k:'reserved',label:'Reserved'};
+  const stay=mins(now()-s.start);
+  if(s.finishedAt){const l=mins(now()-s.finishedAt);return {k:l>=S.settings.lingerNudge?'over':'linger',label:'Finished '+l+' min ago',stay,l}}
+  if(stay>=S.settings.maxDining)return {k:'over',label:'Over limit',stay};
+  return {k:'dining',label:'Dining',stay};
+}
+
+/* ===== Floor ===== */
+function renderFloor(){
+  const el=document.getElementById('tables'),al=document.getElementById('alerts');
+  el.innerHTML='';al.innerHTML='';
+  S.tables.forEach(t=>{
+    const st=status(t),s=S.sessions[t.id];
+    const d=document.createElement('div');
+    d.className='tbl s-'+(st.k==='over'?'over':st.k);d.onclick=()=>openTable(t.id);
+    d.innerHTML=`<span class="tag">${ZN[t.zone]}</span><h3>${esc(t.name)}</h3><div class="m">${t.seats} seats</div>`+
+      (s?`<div class="t">${s.reserved?'Rsv':mm(now()-s.start)}</div><div class="m">${esc(s.name||'Party')} · ${s.party} ppl · ${s.type==='laptop'?'long stay':'dining'}<br>${st.label}</div>`
+        :`<div class="t" style="color:var(--free)">Free</div>`);
+    el.appendChild(d);
+    if(st.k==='over'&&!s.reserved)al.innerHTML+=`<div class="alert">⚠ <b>${esc(t.name)}</b>: ${s.finishedAt?'meal finished '+st.l+' min ago – offer the bill politely or move to a communal table':'over the '+S.settings.maxDining+'-min dining limit'}.</div>`;
+  });
+  const seatable=S.waitlist.filter(w=>suggestTables(w.size,w.type).length).length;
+  if(seatable)al.innerHTML+=`<div class="sug">✅ ${seatable} waiting party(ies) can be seated now – open the Waitlist tab.</div>`;
+}
+const mm=ms=>{const m=mins(ms);return Math.floor(m/60)+'h '+String(m%60).padStart(2,'0')+'m'};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function openTable(id){
+  const t=S.tables.find(x=>x.id===id),s=S.sessions[id];let h=`<h2>${esc(t.name)} · ${t.seats} seats · ${ZN[t.zone]}</h2>`;
+  if(!s){
+    h+=`<div class="f"><div><label>Name (optional)</label><input id="pN"></div><div><label>People</label><input id="pP" type="number" min="1" max="${t.seats}" value="2"></div>
+    <div><label>Type</label><select id="pT"><option value="dining">Dining group</option><option value="laptop">Solo / laptop / long stay</option></select></div></div>
+    <p class="note" id="fit"></p>
+    <div class="row" style="margin-top:10px"><button class="btn p" onclick="seat('${id}',false)">Seat now</button><button class="btn g" onclick="seat('${id}',true)">Mark reserved</button><button class="btn g" onclick="closeM()">Cancel</button></div>`;
+  }else if(s.reserved){
+    h+=`<p>Reserved for ${esc(s.name||'party')} (${s.party} people).</p><div class="row"><button class="btn p" onclick="arrive('${id}')">Guests arrived</button><button class="btn d" onclick="vacate('${id}')">Cancel reservation</button></div>`;
+  }else{
+    const st=status(t);
+    h+=`<p><b>${esc(s.name||'Party')}</b> · ${s.party} people · ${s.type==='laptop'?'long stay':'dining'}<br>Seated ${mm(now()-s.start)} ago${s.finishedAt?' · meal finished '+st.l+' min ago':''}</p>`;
+    if(!s.finishedAt)h+=`<div class="row"><button class="btn g" onclick="finished('${id}')">Meal finished (still seated)</button></div>`;
+    h+=`<div class="f"><div><label>Bill amount (₹) – needed for insights</label><input id="bill" type="number" min="0" placeholder="e.g. 850"></div><div><button class="btn p" onclick="clearTable('${id}')">Guests left – clear table</button></div></div>
+    <div class="row" style="margin-top:10px"><button class="btn g" onclick="closeM()">Close</button></div>`;
+  }
+  openM(h);
+  if(!s){const upd=()=>{const p=+document.getElementById('pP').value,ty=document.getElementById('pT').value;const best=suggestTables(p,ty)[0];
+    document.getElementById('fit').innerHTML=p>t.seats?'⚠ Too many people for this table.':(best&&best.t.id!==id?`💡 Better fit: <b>${esc(best.t.name)}</b> (${best.why}).`:'✅ Good table for this party.')};
+    ['pP','pT'].forEach(i=>document.getElementById(i).addEventListener('input',upd));upd()}
+}
+function seat(id,reserved){
+  const p=Math.max(1,+document.getElementById('pP').value||1),t=S.tables.find(x=>x.id===id);
+  if(p>t.seats){alert('This table has only '+t.seats+' seats.');return}
+  S.sessions[id]={name:document.getElementById('pN').value.trim(),party:p,type:document.getElementById('pT').value,start:now(),reserved:!!reserved};
+  save();closeM();renderAll();
+}
+function arrive(id){S.sessions[id].reserved=false;S.sessions[id].start=now();save();closeM();renderAll()}
+function vacate(id){delete S.sessions[id];save();closeM();renderAll()}
+function finished(id){S.sessions[id].finishedAt=now();save();closeM();renderAll()}
+function clearTable(id){
+  const s=S.sessions[id],t=S.tables.find(x=>x.id===id),end=now(),bill=+document.getElementById('bill').value||0;
+  S.log.unshift({table:t.name,zone:t.zone,seats:t.seats,party:s.party,type:s.type,start:s.start,end,
+    stay:mins(end-s.start),linger:s.finishedAt?mins(end-s.finishedAt):0,bill});
+  delete S.sessions[id];save();closeM();renderAll();
+}
+const openM=h=>{document.getElementById('mbox').innerHTML=h;document.getElementById('modal').classList.add('on')};
+const closeM=()=>document.getElementById('modal').classList.remove('on');
+
+/* ===== Waitlist ===== */
+function addWait(){
+  const n=document.getElementById('wName').value.trim()||'Guest',p=+document.getElementById('wSize').value||1;
+  S.waitlist.push({id:uid(),name:n,size:p,type:document.getElementById('wType').value,added:now()});
+  document.getElementById('wName').value='';save();renderAll();
+}
+function renderWait(){
+  const el=document.getElementById('waitList');
+  if(!S.waitlist.length){el.innerHTML='<div class="card note">No one waiting.</div>';return}
+  el.innerHTML=S.waitlist.map(w=>{
+    const s=suggestTables(w.size,w.type)[0];
+    return `<div class="card"><b>${esc(w.name)}</b> · ${w.size} people · ${w.type==='laptop'?'long stay':'dining'} · waiting ${mins(now()-w.added)} min
+    ${s?`<div class="sug">💡 Suggest <b>${esc(s.t.name)}</b> (${ZN[s.t.zone]}, ${s.t.seats} seats) – ${s.why}.</div>
+    <button class="btn p" onclick="seatWait('${w.id}','${s.t.id}')">Seat at ${esc(s.t.name)}</button>`:'<div class="note">No suitable free table yet.</div>'}
+    <button class="btn g" onclick="removeWait('${w.id}')">Remove</button></div>`}).join('');
+}
+function seatWait(wid,tid){
+  const w=S.waitlist.find(x=>x.id===wid);
+  S.sessions[tid]={name:w.name,party:w.size,type:w.type,start:now(),reserved:false};
+  S.waitlist=S.waitlist.filter(x=>x.id!==wid);save();renderAll();
+}
+function removeWait(id){S.waitlist=S.waitlist.filter(x=>x.id!==id);save();renderAll()}
+
+/* ===== Insights ===== */
+function computeStats(log,tables,hoursOpen){
+  const n=log.length,totalSeats=tables.reduce((a,t)=>a+t.seats,0);
+  const sum=(f)=>log.reduce((a,l)=>a+f(l),0);
+  const rev=sum(l=>l.bill),stay=sum(l=>l.stay*l.party),ling=sum(l=>l.linger*l.party);
+  const seatMin=sum(l=>l.stay*l.party);
+  const revPASH=totalSeats&&hoursOpen?rev/(totalSeats*hoursOpen):0;
+  const avgStay=n?sum(l=>l.stay)/n:0;
+  const turns=tables.length&&hoursOpen?n/tables.length:0;
+  const lingerShare=seatMin?ling/seatMin*100:0;
+  const grp=(key)=>{const g={};log.forEach(l=>{const k=l[key];(g[k]=g[k]||{n:0,stay:0,rev:0,seatH:0});g[k].n++;g[k].stay+=l.stay;g[k].rev+=l.bill;g[k].seatH+=l.stay*l.party/60});return g};
+  return {n,rev,avgStay,turns,lingerShare,revPASH,byType:grp('type'),byZone:grp('zone'),seatMin,ling};
+}
+function renderStats(){
+  const st=computeStats(S.log,S.tables,S.settings.hours);
+  const k=(b,s)=>`<div class="kpi"><b>${b}</b><span>${s}</span></div>`;
+  document.getElementById('kpis').innerHTML=k(st.n,'completed sessions')+k('₹'+Math.round(st.rev).toLocaleString('en-IN'),'revenue logged')+
+    k(Math.round(st.avgStay)+' min','average stay')+k(st.turns.toFixed(1),'turns per table')+k('₹'+Math.round(st.revPASH),'RevPASH (revenue per seat-hour)')+k(st.lingerShare.toFixed(0)+'%','seat-time after meal finished');
+  const act=Math.max(0,st.seatMin-st.ling),tot=Math.max(1,st.seatMin);
+  document.getElementById('bars').innerHTML=`<div class="bar"><div style="width:${act/tot*100}%;background:var(--dine)"></div><div style="width:${st.ling/tot*100}%;background:var(--ling)"></div></div>
+   <p class="note"><i class="dot" style="background:var(--dine)"></i> Active dining ${Math.round(act/60*10)/10} seat-hours &nbsp; <i class="dot" style="background:var(--ling)"></i> Lingering after meal ${Math.round(st.ling/60*10)/10} seat-hours</p>`;
+  const tbl=(g,lab)=>Object.keys(g).length?`<table class="l"><tr><th></th><th>Sessions</th><th>Avg stay</th><th>Revenue</th><th>₹ per seat-hour</th></tr>`+Object.entries(g).map(([k,v])=>`<tr><td>${lab[k]||k}</td><td>${v.n}</td><td>${Math.round(v.stay/v.n)} min</td><td>₹${Math.round(v.rev)}</td><td>₹${v.seatH?Math.round(v.rev/v.seatH):0}</td></tr>`).join('')+'</table>':'<p class="note">No data yet – clear a few tables with a bill amount.</p>';
+  document.getElementById('byType').innerHTML=tbl(st.byType,{dining:'Dining groups',laptop:'Solo / laptop'});
+  document.getElementById('byZone').innerHTML=tbl(st.byZone,ZN);
+  document.getElementById('logT').innerHTML='<tr><th>Table</th><th>Type</th><th>People</th><th>Stay</th><th>After meal</th><th>Bill</th></tr>'+S.log.slice(0,15).map(l=>`<tr><td>${esc(l.table)}</td><td>${l.type==='laptop'?'long stay':'dining'}</td><td>${l.party}</td><td>${l.stay}m</td><td>${l.linger}m</td><td>₹${l.bill}</td></tr>`).join('');
+}
+function exportCSV(){
+  const rows=[['table','zone','seats','party','type','start','end','stay_min','linger_min','bill']].concat(S.log.map(l=>[l.table,l.zone,l.seats,l.party,l.type,new Date(l.start).toISOString(),new Date(l.end).toISOString(),l.stay,l.linger,l.bill]));
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([rows.map(r=>r.join(',')).join('\n')],{type:'text/csv'}));a.download='tableflow-sessions.csv';a.click();
+}
+function loadSample(){
+  if(!confirm('This adds SIMULATED sample sessions so you can see the Insights page. Do not present them as real data. Continue?'))return;
+  const types=['dining','laptop'],base=now()-4*3600e3;let i=0;
+  S.tables.forEach(t=>{for(let k=0;k<3;k++){const ty=(t.zone==='communal'||(i+k)%4===0)?'laptop':'dining';const stay=ty==='laptop'?95+((i*7+k*13)%50):45+((i*5+k*11)%30);
+    const party=Math.min(t.seats,ty==='laptop'?1:2+((i+k)%3));const st=base+k*60*60e3+i*3e5;
+    S.log.push({table:t.name,zone:t.zone,seats:t.seats,party,type:ty,start:st,end:st+stay*60e3,stay,linger:ty==='laptop'?stay-30:Math.max(0,stay-40),bill:ty==='laptop'?Math.round(party*140):Math.round(party*320)});i++}});
+  save();renderAll();
+}
+function clearLog(){if(confirm('Delete all session history?')){S.log=[];save();renderAll()}}
+
+/* ===== Setup ===== */
+function renderSetup(){
+  document.getElementById('sMax').value=S.settings.maxDining;document.getElementById('sLing').value=S.settings.lingerNudge;document.getElementById('sHours').value=S.settings.hours;
+  document.getElementById('tList').innerHTML=S.tables.map(t=>`<div class="row"><b style="min-width:50px">${esc(t.name)}</b><span class="note">${t.seats} seats · ${ZN[t.zone]}</span><button class="btn g" onclick="delTable('${t.id}')">Remove</button></div>`).join('');
+}
+function saveSettings(){S.settings={maxDining:+sMax.value||75,lingerNudge:+sLing.value||20,hours:+sHours.value||10};save();renderAll()}
+function addTable(){const n=tName.value.trim();if(!n)return alert('Give the table a name');S.tables.push({id:uid(),name:n,seats:+tSeats.value||2,zone:tZone.value});tName.value='';save();renderAll()}
+function delTable(id){if(S.sessions[id])return alert('Clear this table first.');S.tables=S.tables.filter(t=>t.id!==id);save();renderAll()}
+function resetAll(){if(confirm('Reset all tables, settings and history?')){S=JSON.parse(JSON.stringify(DEFAULT));save();renderAll()}}
+
+/* ===== Navigation ===== */
+function renderAll(){renderFloor();renderWait();renderStats();renderSetup()}
+document.getElementById('nav').addEventListener('click',e=>{const v=e.target.dataset.v;if(!v)return;
+  document.querySelectorAll('.view').forEach(x=>x.classList.toggle('on',x.id===v));
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));renderAll()});
+document.getElementById('modal').addEventListener('click',e=>{if(e.target.id==='modal')closeM()});
+renderAll();setInterval(()=>{if(!document.getElementById('modal').classList.contains('on'))renderAll()},30000);
+</script>
+</body>
+</html>
